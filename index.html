@@ -3114,10 +3114,14 @@
       function closeSidebar() {
         document.getElementById("sidebar").classList.add("collapsed");
       }
-      // داخل تطبيق الأندرويد (الجسر ScrapperNative موجود) نبدأ بالقائمة
-      // مطوية افتراضيًا — نفس السلوك اللي كان بالنسخة المدمجة القديمة —
-      // بينما بمتصفح الويب العادي تبقى ظاهرة لأنها مساحة كافية أصلًا.
-      if (window.ScrapperNative) {
+      // داخل تطبيق الأندرويد نبدأ بالقائمة مطوية افتراضيًا — نفس السلوك اللي
+      // كان بالنسخة المدمجة القديمة — بينما بمتصفح الويب العادي تبقى ظاهرة
+      // لأنها مساحة كافية أصلًا. نتحقق من الأندرويد بطريقتين معًا: جسر
+      // ScrapperNative، أو معامل ?native=android بالرابط (بعض أجهزة
+      // الأندرويد القديمة فيها تأخير بظهور الجسر لأول سكربت ينفّذ).
+      const isAndroidApp = !!window.ScrapperNative ||
+        new URLSearchParams(location.search).get("native") === "android";
+      if (isAndroidApp) {
         const toggleBtn = document.getElementById("sidebar-toggle-btn");
         if (toggleBtn) toggleBtn.style.display = "";
         closeSidebar();
