@@ -5818,6 +5818,8 @@
           { header: "Date",        key: "date",       width: 12 },
           { header: "Likes",       key: "likes",      width: 10 },
           { header: "Comments",    key: "comments",   width: 10 },
+          { header: "Reposts",     key: "reposts",    width: 10 },
+          { header: "Shares",      key: "shares",     width: 10 },
           { header: "Comment Analysis", key: "commentAnalysis", width: 34 },
           { header: "ER%", key: "er", width: 10 },
           { header: `${platformLabel} URL`, key: "posturl",  width: 20 },
@@ -5925,6 +5927,8 @@
             date: p.postedAt ? p.postedAt.slice(0, 10) : "",
             likes: p.likesCount || 0,
             comments: p.commentsCount || 0,
+            reposts: p.repostsCount || 0,
+            shares: p.sharesCount || 0,
             commentAnalysis: commentAnalysisText,
             er: _erVal !== null ? _erVal.toFixed(2) + "%" : "N/A",
             posturl: "",
@@ -7269,8 +7273,8 @@
         <div class="post-stats">
           <div class="post-stat"><span class="post-stat-icon" style="color:var(--pink)">❤️</span>${fmt(p.likesCount)}</div>
           <div class="post-stat"><span class="post-stat-icon" style="color:var(--blue)">💬</span>${fmt(p.commentsCount)}</div>
-          <div class="post-stat ${hasShares ? "" : "na"}"><span class="post-stat-icon" style="color:var(--green)">↗️</span>${hasShares ? fmt(p.sharesCount) : "—"}</div>
           <div class="post-stat ${hasReposts ? "" : "na"}"><span class="post-stat-icon" style="color:var(--purple)">🔁</span>${hasReposts ? fmt(p.repostsCount) : "—"}</div>
+          <div class="post-stat ${hasShares ? "" : "na"}"><span class="post-stat-icon" style="color:var(--green)">↗️</span>${hasShares ? fmt(p.sharesCount) : "—"}</div>
         </div>
         <div class="post-er-row">
           <span class="post-er-label">Engagement Rate</span>
@@ -10454,12 +10458,12 @@
           <input class="pep-stat-input" id="pep-comments" type="number" min="0" placeholder="0" title="Comments">
         </div>
         <div class="pep-action-item">
-          <span class="pep-action-icon" style="color:var(--green)">↗️</span>
-          <input class="pep-stat-input" id="pep-shares" type="number" min="0" placeholder="0" title="Shares">
-        </div>
-        <div class="pep-action-item">
           <span class="pep-action-icon" style="color:var(--purple)">🔁</span>
           <input class="pep-stat-input" id="pep-reposts" type="number" min="0" placeholder="0" title="Reposts">
+        </div>
+        <div class="pep-action-item">
+          <span class="pep-action-icon" style="color:var(--green)">↗️</span>
+          <input class="pep-stat-input" id="pep-shares" type="number" min="0" placeholder="0" title="Shares">
         </div>
       </div>
 
