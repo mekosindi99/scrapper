@@ -3105,6 +3105,55 @@
       const CLOUDINARY_UPLOAD_PRESET = "scrapper-app";
       const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
+      // ── سيرفر backend صغير (Render) وظيفته الوحيدة حذف الصور فعليًا من
+      // Cloudinary — لازم يمر عبره لأن الحذف يحتاج API Secret ما ينحط أبدًا
+      // بكود واجهة عامة زي هذا الملف (راجع mekosindi99/scrapper-backend).
+      const SCRAPPER_BACKEND_URL = "https://scrapper-backend-wklb.onrender.com";
+      const SCRAPPER_BACKEND_SECRET = "scr_9f2kLp8Xz1mQwR7vTb3nJh5cYd0aVe6u";
+
+      // يحذف صورة واحدة من Cloudinary اعتمادًا على رابطها. Fire-and-forget من
+      // نقاط الاستدعاء — فشل حذف الصورة السحابية ما لازم يمنع حذف المنشور
+      // محليًا/بـ Firestore (نفس فلسفة بقية دوال المزامنة بهذا الملف).
+      async function deleteImageFromCloudinary(url) {
+        if (!url) return;
+        try {
+          const res = await fetch(`${SCRAPPER_BACKEND_URL}/api/delete-image`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-app-secret": SCRAPPER_BACKEND_SECRET,
+            },
+            body: JSON.stringify({ url }),
+          });
+          if (!res.ok) {
+            console.warn("Cloudinary image delete failed", res.status, await res.text().catch(() => ""));
+          }
+        } catch (err) {
+          console.warn("Cloudinary image delete request failed", err);
+        }
+      }
+
+      // نفس الفكرة لعدة صور دفعة وحدة (حذف صفحة/ملف كامل بكل منشوراته).
+      async function deleteImagesFromCloudinary(urls) {
+        const list = (urls || []).filter(Boolean);
+        if (!list.length) return;
+        try {
+          const res = await fetch(`${SCRAPPER_BACKEND_URL}/api/delete-images`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-app-secret": SCRAPPER_BACKEND_SECRET,
+            },
+            body: JSON.stringify({ urls: list }),
+          });
+          if (!res.ok) {
+            console.warn("Cloudinary bulk image delete failed", res.status, await res.text().catch(() => ""));
+          }
+        } catch (err) {
+          console.warn("Cloudinary bulk image delete request failed", err);
+        }
+      }
+
       let fbReady = false;
       window.addEventListener("fb-ready", () => {
         fbReady = true;
@@ -9033,6 +9082,10 @@
         const uploadIds = state.uploads
           .filter((u) => u.pageId === id)
           .map((u) => u.id);
+        const imageUrls = state.posts
+          .filter((p) => p.pageId === id)
+          .map((p) => p.cloudinaryUrl)
+          .filter(Boolean);
         state.pages = state.pages.filter((p) => p.id !== id);
         state.posts = state.posts.filter((p) => p.pageId !== id);
         state.uploads = state.uploads.filter((u) => u.pageId !== id);
@@ -9049,6 +9102,7 @@
         deleteUploadsFromFirestore(uploadIds).catch((err) =>
           console.warn("Firestore cleanup uploads failed", err),
         );
+        deleteImagesFromCloudinary(imageUrls);
       }
 
       // ════════════════════════════════════════════
@@ -9166,6 +9220,10 @@
         const postIds = state.posts
           .filter((p) => p.uploadId === id)
           .map((p) => p.id);
+        const imageUrls = state.posts
+          .filter((p) => p.uploadId === id)
+          .map((p) => p.cloudinaryUrl)
+          .filter(Boolean);
         state.uploads = state.uploads.filter((u) => u.id !== id);
         state.posts = state.posts.filter((p) => p.uploadId !== id);
         saveState();
@@ -9178,6 +9236,7 @@
         deletePostsFromFirestore(postIds).catch((err) =>
           console.warn("Firestore cleanup posts failed", err),
         );
+        deleteImagesFromCloudinary(imageUrls);
       }
 
       // ════════════════════════════════════════════
@@ -10016,12 +10075,14 @@
 
       function permanentDeletePost(postId) {
         if (!confirm("This post will be permanently deleted and this cannot be undone.\n\nAre you sure?")) return;
+        const post = state.posts.find(p => p.id === postId);
         state.posts = state.posts.filter(p => p.id !== postId);
         saveState();
         render();
         showToast("🗑 Permanently deleted");
         if (typeof deletePostsFromFirestore === "function")
           deletePostsFromFirestore([postId]).catch(e => console.warn("Firestore permanent-delete failed", e));
+        deleteImageFromCloudinary(post?.cloudinaryUrl);
       }
 
       // ── PIC_HD card actions ─────────────────────────────────────────────────
