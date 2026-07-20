@@ -7420,8 +7420,11 @@
     <details class="card collapsible-card">
       <summary class="font-bold collapsible-summary">🗑 Trash (${deletedPosts.length})</summary>
       <div class="collapsible-body">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
-        💡 Posts here are temporarily deleted — you can restore them or delete them permanently.
+      <div class="flex justify-between items-center flex-wrap gap2" style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--muted)">
+          💡 Posts here are temporarily deleted — you can restore them or delete them permanently.
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="event.preventDefault();permanentDeleteAllTrash(${pageId})">🗑️ Delete All Permanently (${deletedPosts.length})</button>
       </div>
       <div class="post-grid trash-grid">
         ${deletedPosts.map(p => {
@@ -10256,6 +10259,24 @@
         if (typeof deletePostsFromFirestore === "function")
           deletePostsFromFirestore([postId]).catch(e => console.warn("Firestore permanent-delete failed", e));
         deleteImageFromCloudinary(post?.cloudinaryUrl);
+      }
+
+      // يحذف نهائيًا كل منشورات سلة المهملات الخاصة بصفحة معيّنة بنقرة زر
+      // وحدة — نفس منطق permanentDeletePost بس دفعة وحدة (حذف محلي + Firestore
+      // + كل صور Cloudinary المرتبطة دفعة وحدة).
+      function permanentDeleteAllTrash(pageId) {
+        const trashed = state.posts.filter((p) => p.pageId === pageId && p.deleted);
+        if (!trashed.length) return;
+        if (!confirm(`Permanently delete all ${trashed.length} post(s) in Trash for this page? This cannot be undone.`)) return;
+        const ids = trashed.map((p) => p.id);
+        const imageUrls = trashed.map((p) => p.cloudinaryUrl).filter(Boolean);
+        state.posts = state.posts.filter((p) => !(p.pageId === pageId && p.deleted));
+        saveState();
+        render();
+        showToast(`🗑 ${ids.length} post(s) permanently deleted`);
+        if (typeof deletePostsFromFirestore === "function")
+          deletePostsFromFirestore(ids).catch((e) => console.warn("Firestore empty-trash failed", e));
+        deleteImagesFromCloudinary(imageUrls);
       }
 
       // ── PIC_HD card actions ─────────────────────────────────────────────────
