@@ -2143,6 +2143,48 @@
         transition: background .15s, border-color .15s;
       }
       .post-soft-del-btn:hover { background: rgba(239,68,68,.2); border-color: rgba(239,68,68,.5); }
+      /* ── Multi-select posts (bulk delete) ── */
+      .post-card.select-mode { cursor: pointer; }
+      .post-select-box {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        border: 2px solid rgba(255,255,255,.6);
+        background: rgba(0,0,0,.35);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 800;
+        z-index: 3;
+        cursor: pointer;
+      }
+      .post-select-box.checked {
+        background: var(--primary);
+        border-color: var(--primary);
+      }
+      .post-card.is-selected {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .bulk-select-bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: var(--bg2);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 10px;
+      }
       .trash-section-toggle {
         display: flex;
         align-items: center;
@@ -3088,6 +3130,10 @@
         return `${days} day${days !== 1 ? "s" : ""} ago`;
       }
       let state = { pages: [], posts: [], uploads: [], archiveFolders: [], nextId: 1 };
+
+      // ── تحديد متعدد للمنشورات (لحذف مجموعة دفعة وحدة، مو بالتسلسل شرط) ──
+      let postSelectMode = false;
+      let selectedPostIds = new Set();
 
       function applyTheme(theme) {
         document.documentElement.setAttribute("data-theme", theme);
@@ -7165,9 +7211,10 @@
             </div>`;
             // ───────────────────────────────────────────────
 
-            return `<div class="post-card${isDup ? " is-dup" : ""}" id="pcard-${p.id}">
+            const _isSelected = selectedPostIds.has(p.id);
+            return `<div class="post-card${isDup ? " is-dup" : ""}${postSelectMode ? " select-mode" : ""}${_isSelected ? " is-selected" : ""}" id="pcard-${p.id}"${postSelectMode ? ` onclick="event.stopPropagation();togglePostSelect(${p.id})"` : ""}>
       ${dupBadge}
-      <div class="post-img">${imgHtml}${p.openCount > 0 ? `<div class="open-count-badge" data-post-id="${p.id}">Open_${p.openCount}</div>` : ""}${_caGrade ? `<div class="comment-analysis-badge" style="background:${_caGrade.color}" title="${_caGrade.label}">${_caGrade.key === "gold" ? "🏆" : _caGrade.key === "healthy" ? "✅" : _caGrade.key === "mid" ? "🙂" : "💤"} PSS ${Math.round(p.commentPSS)}</div>` : ""}</div>
+      <div class="post-img">${postSelectMode ? `<div class="post-select-box${_isSelected ? " checked" : ""}">${_isSelected ? "✓" : ""}</div>` : ""}${imgHtml}${p.openCount > 0 ? `<div class="open-count-badge" data-post-id="${p.id}">Open_${p.openCount}</div>` : ""}${_caGrade ? `<div class="comment-analysis-badge" style="background:${_caGrade.color}" title="${_caGrade.label}">${_caGrade.key === "gold" ? "🏆" : _caGrade.key === "healthy" ? "✅" : _caGrade.key === "mid" ? "🙂" : "💤"} PSS ${Math.round(p.commentPSS)}</div>` : ""}</div>
       <div class="post-body">
         ${p.postedAt ? `<div class="mb2" style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--muted)">${fmtDate(p.postedAt)}</span><span style="font-size:12px;font-weight:700;color:var(--primary);font-family:monospace">${fmtAge(p.postedAt)}</span></div>` : ""}
         <div class="post-caption-row">
@@ -7429,10 +7476,22 @@
         <span class="text-sm text-muted">Sort by:</span>
         <select onchange="onSortKeyChange('posts', this)">${postSortOptions}</select>
         <button class="sort-dir-btn" onclick="toggleSortDir('posts')">${sortDirIcon("posts")}</button>
+        <button class="btn ${postSelectMode ? "btn-primary" : "btn-ghost"} btn-sm" onclick="toggleSelectMode()">☑ ${postSelectMode ? "Cancel" : "Select"}</button>
       </div>`
           : ""
       }
     </div>
+    ${
+      postSelectMode
+        ? `<div class="bulk-select-bar">
+        <span style="font-size:13px;font-weight:700">${selectedPostIds.size} selected</span>
+        <button class="btn btn-ghost btn-sm" onclick="selectAllVisiblePosts(${JSON.stringify(posts.map(p => p.id))})">Select All (${posts.length})</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearPostSelection()">Clear</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-danger btn-sm" ${selectedPostIds.size === 0 ? "disabled" : ""} onclick="bulkSoftDeleteSelectedPosts()">🗑 Delete Selected (${selectedPostIds.size})</button>
+      </div>`
+        : ""
+    }
     ${
       posts.length === 0
         ? `<div class="empty"><div class="empty-icon">🖼</div><div>No posts yet</div><button class="btn btn-primary mt2" onclick="navigate('upload',${pageId})">⬆ Upload Data File</button></div>`
@@ -7440,6 +7499,60 @@
     }
   </div>
 `;
+      }
+
+      function toggleSelectMode() {
+        postSelectMode = !postSelectMode;
+        if (!postSelectMode) selectedPostIds.clear();
+        render();
+      }
+
+      function togglePostSelect(id) {
+        if (selectedPostIds.has(id)) selectedPostIds.delete(id);
+        else selectedPostIds.add(id);
+        render();
+      }
+
+      function selectAllVisiblePosts(ids) {
+        ids.forEach((id) => selectedPostIds.add(id));
+        render();
+      }
+
+      function clearPostSelection() {
+        selectedPostIds.clear();
+        render();
+      }
+
+      // يحذف (نقل للمحذوفات) كل المنشورات المحدّدة دفعة وحدة — نفس منطق
+      // softDeletePost بس بدون render/toast لكل عنصر لحاله (أداء أفضل لو
+      // العدد كبير، ونفس الحماية: حذف مؤقت فقط، يظهر بسلة المحذوفات ويقدر
+      // المستخدم يرجعه، ومحذوف تلقائيًا من أي تقرير/تصدير لأنها تعتمد كلها
+      // على getVisiblePosts() اللي يستثني p.deleted).
+      function bulkSoftDeleteSelectedPosts() {
+        const ids = [...selectedPostIds];
+        if (!ids.length) return;
+        if (!confirm(`Move ${ids.length} post(s) to Trash?`)) return;
+        const now = new Date().toISOString();
+        const touched = [];
+        ids.forEach((id) => {
+          const post = state.posts.find((p) => p.id === id);
+          if (!post || post.deleted) return;
+          post.deleted = true;
+          post.deletedAt = now;
+          touched.push(post);
+        });
+        saveState();
+        selectedPostIds.clear();
+        postSelectMode = false;
+        render();
+        showToast(`🗑 ${touched.length} post(s) moved to Trash`);
+        touched.forEach((post) => {
+          if (typeof savePostToFirestore === "function") {
+            savePostToFirestore(post).catch((e) =>
+              console.warn("Firestore bulk soft-delete sync failed", e),
+            );
+          }
+        });
       }
 
       async function saveFollowers(pageId) {
