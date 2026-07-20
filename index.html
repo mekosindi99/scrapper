@@ -4156,13 +4156,24 @@
           // 3. Merge helper — keep whichever version was updated more
           // recently. Falls back to "Firestore wins" only when neither
           // record has an updatedAt timestamp to compare.
+          //
+          // ⚠ عنصر موجود محليًا وغير موجود بنتيجة Firestore له احتمالان بس:
+          // (أ) عنصر جديد لسا ما وصل السحابة، أو (ب) انحذف من جهاز ثاني ولسا
+          // موجود بالتخزين المحلي القديم لهذا الجهاز. قبل هذا التعديل كنا
+          // نفترض دايمًا الاحتمال (أ) ونرجّع العنصر — وهذا كان يلغي أي حذف
+          // يصير من جهاز آخر (يرجع تلقائيًا بأول Sync). الحل: نقارن وقت
+          // العنصر بآخر مزامنة ناجحة (lastSync) — لو أقدم منها، يبقى أكيد
+          // انحذف من مكان ثاني ونطرحه؛ ولو أحدث، يبقى فعلاً جديد ولسا معلّق.
           const mergeById = (fsArr, localArr) => {
             const map = new Map(fsArr.map((x) => [String(x.id), x]));
             for (const item of localArr) {
               const key = String(item.id);
               const existing = map.get(key);
               if (!existing) {
-                map.set(key, item);
+                const itemTime = item.updatedAt || item.createdAt
+                  ? new Date(item.updatedAt || item.createdAt).getTime()
+                  : 0;
+                if (itemTime > lastSync) map.set(key, item);
                 continue;
               }
               const localTime = item.updatedAt
