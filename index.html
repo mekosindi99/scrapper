@@ -6034,6 +6034,37 @@
           if (hdUrl) await embedCellImage(hdUrl, 2);
         }
 
+        // ── Type Breakdown — a plain-English summary appended at the very
+        // end of the sheet, counting how many exported posts fall under each
+        // "Post Type" (set from the dropdown added below the Date field in
+        // the post editor). Posts with no type set are skipped entirely
+        // rather than counted as a mystery category. ──
+        {
+          const typeCounts = {};
+          sorted.forEach((p) => {
+            if (!p.postType) return;
+            typeCounts[p.postType] = (typeCounts[p.postType] || 0) + 1;
+          });
+          const typeEntries = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+          if (typeEntries.length) {
+            let r = (sorted.length + 1) + 2; // one blank row gap after the last post row (header=1, posts=2..N+1)
+            const titleRow = ws.getRow(r);
+            titleRow.getCell(1).value = "Type Breakdown";
+            titleRow.getCell(1).font = { bold: true, size: 13 };
+            r++;
+            typeEntries.forEach(([type, count]) => {
+              const row = ws.getRow(r);
+              row.getCell(1).value = `${type}: ${count}`;
+              r++;
+            });
+            const topType = typeEntries[0][0];
+            const topCount = typeEntries[0][1];
+            const concludeRow = ws.getRow(r + 1);
+            concludeRow.getCell(1).value = `This page relies mostly on ${topType} (${topCount} post${topCount === 1 ? "" : "s"}).`;
+            concludeRow.getCell(1).font = { italic: true };
+          }
+        }
+
         // Enable filter/sort dropdowns on the header row
         ws.autoFilter = {
           from: { row: 1, column: 1 },
@@ -9655,6 +9686,10 @@
         document.getElementById("pep-shares").value   = post.sharesCount   != null ? post.sharesCount   : "";
         document.getElementById("pep-reposts").value  = post.repostsCount  != null ? post.repostsCount  : "";
 
+        // ── Post Type ──
+        const pepPostTypeEl = document.getElementById("pep-post-type");
+        if (pepPostTypeEl) pepPostTypeEl.value = post.postType || "";
+
         // ── Caption ──
         const captionArea = document.getElementById("pep-caption-area");
         if (post.caption) {
@@ -9833,6 +9868,10 @@
         post.sharesCount   = isNaN(newShares)   ? 0 : newShares;
         post.repostsCount  = isNaN(newReposts)  ? 0 : newReposts;
         post.updatedAt     = new Date().toISOString();
+
+        // ── Post Type ──
+        const pepPostTypeVal = document.getElementById("pep-post-type")?.value || "";
+        post.postType = pepPostTypeVal || null;
 
         // ── تحليل التعليقات (يدوي) — مصفوفة إشارات نية الشراء + PSS ──
         const caTotal  = parseInt(document.getElementById("pep-ca-total").value  || "", 10);
@@ -10473,6 +10512,25 @@
           <span class="pep-action-icon" style="color:var(--green)">↗️</span>
           <input class="pep-stat-input" id="pep-shares" type="number" min="0" placeholder="0" title="Shares">
         </div>
+      </div>
+
+      <!-- Post Type row -->
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 14px 4px">
+        <span style="font-size:15px;flex-shrink:0">🏷️</span>
+        <select id="pep-post-type"
+          style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;min-width:0"
+          title="Post Type">
+          <option value="">— Post Type —</option>
+          <option value="Dress">Dress</option>
+          <option value="Jacket">Jacket</option>
+          <option value="Set_skirt">Set_skirt</option>
+          <option value="Set_Pants">Set_Pants</option>
+          <option value="Track">Track</option>
+          <option value="Caloon">Caloon</option>
+          <option value="Pants">Pants</option>
+          <option value="Badlason">Badlason</option>
+          <option value="Bloze">Bloze</option>
+        </select>
       </div>
 
       <!-- Caption -->
