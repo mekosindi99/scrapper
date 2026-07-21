@@ -9756,6 +9756,16 @@
         arrow.textContent = isHidden ? "▲" : "▼";
       }
 
+      // ⚠ لما تتغيّر خانة "التعليقات" الأصلية فوق، لازم تنعكس فورًا على حقل
+      // "إجمالي التعليقات" جوا قسم "تحليل التعليقات (يدوي)" — قبل هذا التعديل
+      // كانوا يتزامنون بس أول ما تفتح المنشور (populate)، وأي تعديل تسويه
+      // على "التعليقات" بعدين ما ينعكس، فيصير تعارض بين الرقمين بنفس اللوحة.
+      function syncCaTotalWithComments(val) {
+        const totalEl = document.getElementById("pep-ca-total");
+        if (totalEl) totalEl.value = val;
+        pepCaLiveCalc();
+      }
+
       // إعادة حساب PSS مباشرة أثناء الكتابة داخل نافذة التحرير
       function pepCaLiveCalc() {
         const totalEl = document.getElementById("pep-ca-total");
@@ -10506,7 +10516,7 @@
         </div>
         <div class="pep-action-item">
           <span class="pep-action-icon" style="color:var(--blue)">💬</span>
-          <input class="pep-stat-input" id="pep-comments" type="number" min="0" placeholder="0" title="Comments">
+          <input class="pep-stat-input" id="pep-comments" type="number" min="0" placeholder="0" title="Comments" oninput="syncCaTotalWithComments(this.value)">
         </div>
         <div class="pep-action-item">
           <span class="pep-action-icon" style="color:var(--purple)">🔁</span>
