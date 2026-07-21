@@ -9849,9 +9849,13 @@
 
         if (hasCaDataNow) {
           const exceedSum = caFieldsSumExceedsTotal({ total: caTotal, seller: caSeller, cp: caCP, ca: caCA, cl: caCL, ct: caCT, rc: caRC, g: caG });
+          // ⚠ سابقًا كان هذا يمنع الحفظ بالكامل (return) لو مجموع الحقول
+          // تجاوز الإجمالي — وهذا كان السبب الحقيقي وراء شكوى "أكتب تحليل
+          // التعليقات وأحفظ، بس لما أرجع أفتح المنشور يطلع فاضي": أي تجاوز
+          // بسيط بالمجموع (وارد جدًا بالتصنيف اليدوي) كان يلغي الحفظ بصمت.
+          // الحين نكتفي بتنبيه المستخدم بدون ما نمنع الحفظ.
           if (exceedSum != null) {
-            showToast(`⚠ تعديت إجمالي التعليقات! المجموع ${exceedSum} أكبر من الإجمالي ${Number(caTotal) || 0}`);
-            return;
+            showToast(`⚠ تنبيه: المجموع ${exceedSum} أكبر من الإجمالي ${Number(caTotal) || 0} — تم الحفظ رغم ذلك`);
           }
         }
 
@@ -10081,9 +10085,13 @@
 
         if (hasCaDataNow) {
           const exceedSum = caFieldsSumExceedsTotal({ total: caTotal, seller: caSeller, cp: caCP, ca: caCA, cl: caCL, ct: caCT, rc: caRC, g: caG });
+          // ⚠ سابقًا كان هذا يمنع الحفظ بالكامل (return) لو مجموع الحقول
+          // تجاوز الإجمالي — وهذا كان السبب الحقيقي وراء شكوى "أكتب تحليل
+          // التعليقات وأحفظ، بس لما أرجع أفتح المنشور يطلع فاضي": أي تجاوز
+          // بسيط بالمجموع (وارد جدًا بالتصنيف اليدوي) كان يلغي الحفظ بصمت.
+          // الحين نكتفي بتنبيه المستخدم بدون ما نمنع الحفظ.
           if (exceedSum != null) {
-            showToast(`⚠ تعديت إجمالي التعليقات! المجموع ${exceedSum} أكبر من الإجمالي ${Number(caTotal) || 0}`);
-            return;
+            showToast(`⚠ تنبيه: المجموع ${exceedSum} أكبر من الإجمالي ${Number(caTotal) || 0} — تم الحفظ رغم ذلك`);
           }
         }
 
