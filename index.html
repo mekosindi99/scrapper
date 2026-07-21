@@ -7244,6 +7244,16 @@
               >${_seasonOpts}</select>
               <span style="font-size:10px;flex-shrink:0;opacity:.7" title="${_isManual ? "Manually set" : "Automatic"}">${_isManual ? "✏️" : "🤖"}</span>
             </div>`;
+
+            // ── Post Type + Content Format مباشرة على البطاقة ──
+            const _ptOptsCard = ["", "Dress","Jacket","Set_skirt","Set_Pants","Track","Caloon","Pants","Badlason","Bloze"]
+              .map(v => `<option value="${v}"${p.postType === v ? " selected" : ""}>${v || "— Type —"}</option>`).join("");
+            const _cfOptsCard = ["", "Reel","Carousel","Single Post"]
+              .map(v => `<option value="${v}"${p.contentFormat === v ? " selected" : ""}>${v || "— Format —"}</option>`).join("");
+            const _typeFormatRow = `<div class="season-row" style="margin-top:6px">
+              <select class="season-select" style="flex:1" onchange="event.stopPropagation();cardFieldChanged(${p.id},'postType',this.value)" title="Post Type">${_ptOptsCard}</select>
+              <select class="season-select" style="flex:1" onchange="event.stopPropagation();cardFieldChanged(${p.id},'contentFormat',this.value)" title="Content Format">${_cfOptsCard}</select>
+            </div>`;
             // ───────────────────────────────────────────────
 
             const _isSelected = selectedPostIds.has(p.id);
@@ -7316,6 +7326,7 @@
           <button class="post-soft-del-btn" style="width:auto;padding:5px 9px;margin-top:0;flex:0 0 auto" onclick="event.stopPropagation();softDeletePost(${p.id})" title="Move to Trash">🗑</button>
         </div>
         ${_seasonRow}
+        ${_typeFormatRow}
       </div>
       ${hdBar}
       <button class="${noteToggleClass}" id="note-toggle-${p.id}" onclick="noteToggle(${p.id})">
@@ -10273,6 +10284,16 @@
           ? `${icon} Season saved: ${meta ? meta.label : val}`
           : "🔄 Season reset to automatic"
         );
+      }
+
+      // Post Type / Content Format — تغيير مباشر من البطاقة (نفس فكرة seasonChanged)
+      async function cardFieldChanged(postId, field, val) {
+        const post = state.posts.find(p => p.id === postId);
+        if (!post) return;
+        post[field] = val || null;
+        post.updatedAt = new Date().toISOString();
+        saveState();
+        try { await savePostToFirestore(post); } catch(e) { console.warn("card field sync fail", e); }
       }
 
       // ════════════════════════════════════════════
