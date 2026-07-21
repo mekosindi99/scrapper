@@ -9689,6 +9689,8 @@
         // ── Post Type ──
         const pepPostTypeEl = document.getElementById("pep-post-type");
         if (pepPostTypeEl) pepPostTypeEl.value = post.postType || "";
+        const pepContentFormatEl = document.getElementById("pep-content-format");
+        if (pepContentFormatEl) pepContentFormatEl.value = post.contentFormat || "";
 
         // ── Caption ──
         const captionArea = document.getElementById("pep-caption-area");
@@ -9872,6 +9874,8 @@
         // ── Post Type ──
         const pepPostTypeVal = document.getElementById("pep-post-type")?.value || "";
         post.postType = pepPostTypeVal || null;
+        const pepContentFormatVal = document.getElementById("pep-content-format")?.value || "";
+        post.contentFormat = pepContentFormatVal || null;
 
         // ── تحليل التعليقات (يدوي) — مصفوفة إشارات نية الشراء + PSS ──
         const caTotal  = parseInt(document.getElementById("pep-ca-total").value  || "", 10);
@@ -10514,23 +10518,37 @@
         </div>
       </div>
 
-      <!-- Post Type row -->
-      <div style="display:flex;align-items:center;gap:10px;padding:4px 14px 4px">
-        <span style="font-size:15px;flex-shrink:0">🏷️</span>
-        <select id="pep-post-type"
-          style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;min-width:0"
-          title="Post Type">
-          <option value="">— Post Type —</option>
-          <option value="Dress">Dress</option>
-          <option value="Jacket">Jacket</option>
-          <option value="Set_skirt">Set_skirt</option>
-          <option value="Set_Pants">Set_Pants</option>
-          <option value="Track">Track</option>
-          <option value="Caloon">Caloon</option>
-          <option value="Pants">Pants</option>
-          <option value="Badlason">Badlason</option>
-          <option value="Bloze">Bloze</option>
-        </select>
+      <!-- Post Type + Content Format row — flex-wrap عشان الشاشات الضيقة
+           تلف السطرين تحت بعض بدل ما تضغط القائمتين لحجم غير مقروء. -->
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:4px 14px 4px">
+        <div style="display:flex;align-items:center;gap:8px;flex:1 1 150px;min-width:0">
+          <span style="font-size:15px;flex-shrink:0">🏷️</span>
+          <select id="pep-post-type"
+            style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;min-width:0"
+            title="Post Type">
+            <option value="">— Post Type —</option>
+            <option value="Dress">Dress</option>
+            <option value="Jacket">Jacket</option>
+            <option value="Set_skirt">Set_skirt</option>
+            <option value="Set_Pants">Set_Pants</option>
+            <option value="Track">Track</option>
+            <option value="Caloon">Caloon</option>
+            <option value="Pants">Pants</option>
+            <option value="Badlason">Badlason</option>
+            <option value="Bloze">Bloze</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex:1 1 150px;min-width:0">
+          <span style="font-size:15px;flex-shrink:0">🎬</span>
+          <select id="pep-content-format"
+            style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;min-width:0"
+            title="Content Format">
+            <option value="">— Format —</option>
+            <option value="Reel">Reel</option>
+            <option value="Carousel">Carousel</option>
+            <option value="Single Post">Single Post</option>
+          </select>
+        </div>
       </div>
 
       <!-- Caption -->
