@@ -3051,102 +3051,6 @@
         el.style.color = warnColor;
       }
 
-      // ── تحليل بالذكاء الاصطناعي (قسم التقارير) — يعتمد فقط على البيانات
-      // المخزّنة (كابشن/إحصائيات/رابط صورة)، مو زيارة روابط المنشورات فعليًا.
-      // كشف التكرار (صور/كابشن) يصير محليًا بالتطبيق (دقيق ومجاني)، وبعدها
-      // يترسل ملخص جاهز لـ Claude (عبر سيرفر Render) لكتابة تحليل مقارن.
-      async function runAiAnalysis() {
-        const btn = document.getElementById('ai-analyze-btn');
-        const resultEl = document.getElementById('ai-analysis-result');
-        if (!btn || !resultEl) return;
-        btn.disabled = true;
-        btn.textContent = '⏳ جاري التحليل…';
-        resultEl.style.display = 'block';
-        resultEl.textContent = '⏳ يجمع البيانات ويحلل…';
-
-        try {
-          const pageUsername = (id) => {
-            const pg = state.pages.find((p) => p.id === id);
-            return pg ? pg.username : String(id);
-          };
-
-          const pagesSummary = state.pages.map((pg) => {
-            const posts = state.posts.filter((p) => p.pageId === pg.id && !p.deleted);
-            const totalLikes = posts.reduce((s, p) => s + (p.likesCount || 0), 0);
-            const totalComments = posts.reduce((s, p) => s + (p.commentsCount || 0), 0);
-            return {
-              username: pg.username, platform: pg.platform, followers: pg.followersCount || null,
-              postsCount: posts.length, totalLikes, totalComments,
-            };
-          });
-
-          const allPosts = state.posts.filter((p) => !p.deleted);
-
-          // تكرار الصور بين صفحات مختلفة (نفس رابط الصورة الفعلي)
-          const imgGroups = {};
-          allPosts.forEach((p) => {
-            const img = p.cloudinaryUrl || p.displayUrl;
-            if (!img) return;
-            if (!imgGroups[img]) imgGroups[img] = [];
-            imgGroups[img].push(p);
-          });
-          const duplicateImages = Object.values(imgGroups)
-            .filter((arr) => new Set(arr.map((p) => p.pageId)).size > 1)
-            .map((arr) => ({
-              pages: [...new Set(arr.map((p) => pageUsername(p.pageId)))],
-              count: arr.length,
-            }))
-            .slice(0, 30);
-
-          // تكرار الكابشن بين صفحات مختلفة (نص مطابق تمامًا بعد التطبيع)
-          const capGroups = {};
-          allPosts.forEach((p) => {
-            const cap = (p.caption || '').trim().toLowerCase();
-            if (!cap) return;
-            if (!capGroups[cap]) capGroups[cap] = [];
-            capGroups[cap].push(p);
-          });
-          const duplicateCaptions = Object.entries(capGroups)
-            .filter(([, arr]) => new Set(arr.map((p) => p.pageId)).size > 1)
-            .map(([cap, arr]) => ({
-              captionPreview: cap.slice(0, 80),
-              pages: [...new Set(arr.map((p) => pageUsername(p.pageId)))],
-              count: arr.length,
-            }))
-            .slice(0, 30);
-
-          const summary = { pages: pagesSummary, duplicateImages, duplicateCaptions };
-
-          const prompt = `أنت محلل تسويق محتوى. عندك بيانات صفحات إنستغرام/تيك توك مُدارة بتطبيق SCRAPPER. حلل البيانات التالية (JSON) وجاوب بالعربي بتقرير منظم يتضمن:
-1. مقارنة أداء الصفحات مع بعض (الأفضل من ناحية تفاعل/متابعين)
-2. أي محتوى أو صور متكررة بين الصفحات (استخدم duplicateImages وduplicateCaptions) وشنو تدل عليه
-3. توصيات عملية لتحسين الأداء
-
-البيانات:
-${JSON.stringify(summary, null, 2)}`;
-
-          const res = await fetch(`${SCRAPPER_BACKEND_URL}/api/ai-analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-app-secret': SCRAPPER_BACKEND_SECRET },
-            body: JSON.stringify({ prompt }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            resultEl.textContent = res.status === 503
-              ? '⚠️ ميزة الذكاء الاصطناعي غير مفعّلة بعد على السيرفر (ANTHROPIC_API_KEY ناقص) — راجع README حق scrapper-backend'
-              : `⚠️ فشل التحليل: ${data.error || res.status}`;
-            return;
-          }
-          resultEl.textContent = data.text || 'لا يوجد رد';
-        } catch (e) {
-          resultEl.textContent = '⚠️ تعذّر الوصول لسيرفر التحليل';
-          console.warn('AI analysis failed', e);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = '🤖 تحليل الآن';
-        }
-      }
-
       function exportUsageReport() {
         const history = getUsageHistory();
         const today = getUsage();
@@ -6598,18 +6502,6 @@ ${JSON.stringify(summary, null, 2)}`;
       <button class="btn btn-ghost" onclick="exportData()">💾 Backup Data</button>
       <button class="btn btn-ghost" onclick="importData()">📂 Import / Restore</button>
     </div>
-  </div>
-
-  <!-- ══════════════ AI ANALYSIS (Claude) ══════════════ -->
-  <div class="card mb3" style="padding:18px 20px">
-    <div class="flex justify-between items-center flex-wrap gap2" style="margin-bottom:8px">
-      <div style="font-weight:700;font-size:13.5px;color:var(--muted)">🤖 تحليل بالذكاء الاصطناعي</div>
-      <button class="btn btn-primary btn-sm" id="ai-analyze-btn" onclick="runAiAnalysis()">🤖 تحليل الآن</button>
-    </div>
-    <div style="font-size:11.5px;color:var(--dim);margin-bottom:10px">
-      يقارن بين كل الصفحات، يكشف الصور/المنشورات المتكررة عبر أكثر من صفحة، ويحلل الأداء العام — بناءً على البيانات المخزّنة فقط (الكابشن، الإحصائيات، رابط الصورة).
-    </div>
-    <div id="ai-analysis-result" style="display:none;font-size:13px;line-height:1.9;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;max-height:420px;overflow-y:auto"></div>
   </div>
 
   <!-- ══════════════ ENGAGEMENT DISTRIBUTION (donut) ══════════════ -->
