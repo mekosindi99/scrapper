@@ -3590,13 +3590,16 @@
           <button class="btn btn-sm" onclick="resetUsageStats()" style="background:var(--bg3);color:var(--muted);border:1px solid var(--border)">🗑 Reset Today</button>
         </div>
 
-        <!-- ══ Live Firestore Usage (نفس رسم لوحة Firebase Console بالضبط) ══ -->
+        <!-- ══ Usage Trend — مبني على العدّ الذاتي اللي يتتبعه التطبيق نفسه
+             (نفس بيانات جدول History تحت)، مو Google Cloud Monitoring —
+             هذا الأخير يحتاج تفعيل فوترة على المشروع رفضها المستخدم، فما
+             فيه بديل حقيقي غير هذا. ══ -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">📈 Live Firestore Usage</div>
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">📈 Usage Trend</div>
           <select id="live-usage-period" onchange="initLiveUsageChart(this.value)" style="font-size:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px">
-            <option value="1h">Last hour</option>
-            <option value="24h">Last 24 hours</option>
-            <option value="7d">Last 7 days</option>
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30">Last 30 days</option>
           </select>
         </div>
         <div class="card" style="padding:16px;margin-bottom:20px">
@@ -7967,77 +7970,64 @@
           : btn.dataset.lessLabel;
       }
 
-      // ── Live Firestore Usage — نفس رسم Firebase Console بالضبط، عبر
-      // سيرفر Render (Cloud Monitoring API، يحتاج Service Account مُعدّ من
-      // صاحب المشروع — راجع README حق مستودع scrapper-backend). ──
+      // ── Usage Trend — Google Cloud Monitoring رفض المستخدم تفعيل الفوترة
+      // المطلوبة له، فما فيه بديل حقيقي "مطابق لفايربيس 100%" ممكن تقنيًا
+      // بدون بطاقة مصرفية. البديل العملي: رسم من نفس البيانات اللي التطبيق
+      // يتتبعها بنفسه أصلًا (getUsage/getUsageHistory)، نفس مصدر جدول
+      // History تحت — تقريبية (عمليات هذا التطبيق فقط) مو رسم GCP الداخلي،
+      // لكنها شغّالة فورًا بدون أي إعداد إضافي.
       let _liveUsageChart = null;
-      async function initLiveUsageChart(period) {
-        period = period || document.getElementById('live-usage-period')?.value || '1h';
+      function initLiveUsageChart(days) {
+        days = Number(days || document.getElementById('live-usage-period')?.value || 7);
         const msgEl = document.getElementById('live-usage-msg');
         const canvasEl = document.getElementById('live-usage-canvas');
         if (!msgEl || !canvasEl) return;
-        msgEl.style.display = 'block';
-        msgEl.textContent = '⏳ Loading…';
-        canvasEl.style.display = 'none';
 
-        try {
-          const res = await fetch(`${SCRAPPER_BACKEND_URL}/api/usage-stats?period=${period}`, {
-            headers: { 'x-app-secret': SCRAPPER_BACKEND_SECRET },
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            msgEl.textContent = res.status === 503
-              ? '⚠️ Live usage not configured yet on the server (GCP_SERVICE_ACCOUNT_JSON missing) — راجع README حق scrapper-backend'
-              : `⚠️ Failed to load live usage: ${data.error || res.status}`;
-            return;
-          }
+        const fb = getUsage();
+        const fbH = getUsageHistory();
+        const fbMap = {};
+        fbH.forEach(r => fbMap[r.date] = r);
+        fbMap[todayStr()] = { date: todayStr(), reads: fb.reads||0, writes: fb.writes||0, deletes: fb.deletes||0 };
 
-          const labelFmt = period === '7d'
-            ? (t) => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' })
-            : (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-          // نوحّد كل الطوابع الزمنية الموجودة بأي سلسلة من الثلاث حتى تتماشى
-          // خطوط الرسم مع بعضها بنفس محور X، حتى لو نقطة معينة كانت صفر
-          // بسلسلة وموجودة بسلسلة ثانية.
-          const allTimes = [...new Set([
-            ...data.reads.map(p => p.time), ...data.writes.map(p => p.time), ...data.deletes.map(p => p.time),
-          ])].sort();
-          const toMap = (arr) => Object.fromEntries(arr.map(p => [p.time, p.value]));
-          const readsMap = toMap(data.reads), writesMap = toMap(data.writes), deletesMap = toMap(data.deletes);
-
-          if (allTimes.length === 0) {
-            msgEl.textContent = 'No activity in this period';
-            return;
-          }
-
-          msgEl.style.display = 'none';
-          canvasEl.style.display = 'block';
-
-          if (_liveUsageChart) { _liveUsageChart.destroy(); _liveUsageChart = null; }
-          _liveUsageChart = new Chart(canvasEl.getContext('2d'), {
-            type: 'line',
-            data: {
-              labels: allTimes.map(labelFmt),
-              datasets: [
-                { label: 'Reads',   data: allTimes.map(t => readsMap[t]   || 0), borderColor: '#3b82f6', backgroundColor: 'transparent', tension: .3, pointRadius: 0, borderWidth: 2 },
-                { label: 'Writes',  data: allTimes.map(t => writesMap[t]  || 0), borderColor: '#f97316', backgroundColor: 'transparent', tension: .3, pointRadius: 0, borderWidth: 2 },
-                { label: 'Deletes', data: allTimes.map(t => deletesMap[t] || 0), borderColor: '#ec4899', backgroundColor: 'transparent', tension: .3, pointRadius: 0, borderWidth: 2 },
-              ],
-            },
-            options: {
-              responsive: true,
-              interaction: { mode: 'index', intersect: false },
-              plugins: { legend: { labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') } } },
-              scales: {
-                x: { ticks: { color: 'var(--muted)', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,.05)' } },
-                y: { beginAtZero: true, ticks: { color: 'var(--muted)' }, grid: { color: 'rgba(255,255,255,.05)' } },
-              },
-            },
-          });
-        } catch (e) {
-          msgEl.textContent = '⚠️ Could not reach the usage server';
-          console.warn('Live usage fetch failed', e);
+        // آخر N يوم بالترتيب الزمني الصحيح (قديم → جديد)
+        const dates = [];
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          dates.push(d.toISOString().slice(0, 10));
         }
+        const hasAny = dates.some(d => fbMap[d]);
+        if (!hasAny) {
+          msgEl.style.display = 'block';
+          msgEl.textContent = 'No tracked activity yet';
+          canvasEl.style.display = 'none';
+          return;
+        }
+
+        msgEl.style.display = 'none';
+        canvasEl.style.display = 'block';
+
+        if (_liveUsageChart) { _liveUsageChart.destroy(); _liveUsageChart = null; }
+        _liveUsageChart = new Chart(canvasEl.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: dates.map(d => new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })),
+            datasets: [
+              { label: 'Reads',   data: dates.map(d => (fbMap[d]?.reads)   || 0), borderColor: '#3b82f6', backgroundColor: 'transparent', tension: .3, pointRadius: 2, borderWidth: 2 },
+              { label: 'Writes',  data: dates.map(d => (fbMap[d]?.writes)  || 0), borderColor: '#f97316', backgroundColor: 'transparent', tension: .3, pointRadius: 2, borderWidth: 2 },
+              { label: 'Deletes', data: dates.map(d => (fbMap[d]?.deletes) || 0), borderColor: '#ec4899', backgroundColor: 'transparent', tension: .3, pointRadius: 2, borderWidth: 2 },
+            ],
+          },
+          options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') } } },
+            scales: {
+              x: { ticks: { color: 'var(--muted)', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,.05)' } },
+              y: { beginAtZero: true, ticks: { color: 'var(--muted)' }, grid: { color: 'rgba(255,255,255,.05)' } },
+            },
+          },
+        });
       }
 
       function initReportsDistribution() {
